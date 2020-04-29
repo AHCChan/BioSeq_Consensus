@@ -59,7 +59,7 @@ STR__no_ambiguous_AA_input = "\nERROR: Ambiguous input option has not been "\
 STR__no_ambiguous_AA_output = "\nERROR: Ambiguous output option has not been "\
 "implemented for amino acids."
 
-STR__invalid_seq_char = "\nERROR: Invalid sequence character."
+STR__invalid_seq_char = "\nERROR: Invalid sequence character: {c}"
 STR__invalid_consensus_seq = "\nERROR: Invalid consensus sequence:\n\t{s}"
 
 
@@ -78,6 +78,7 @@ LIST__n_3 = ["B", "D", "H", "V"]
 LIST__n_4 = ["N", "X"]
 LIST__a = ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q",
         "R", "S", "T", "V", "W", "Y"]
+LIST__a_20 = ["X"]
 LIST__all_a3 = ["Ala", "Cys", "Asp", "Glu", "Phe", "Gly", "His", "Ile", "Lys",
         "Leu", "Met", "Asn", "Pro", "Gln", "Arg", "Ser", "Thr", "Val", "Trp",
         "Tyr"]
@@ -139,6 +140,12 @@ DICT__matches = {
     "H": LIST__n_match__H, "V": LIST__n_match__V, "N": LIST__n_match__N,
     "X": LIST__n_match__X}
 
+DICT__matches_S = {
+    "A": "A", "C": "C", "G": "G", "T": "T",
+    "R": "AG", "Y": "CT", "S": "CG", "W": "AT", "M": "AC", "K": "GT",
+    "B": "CGT", "D": "AGT", "H": "ACT", "V": "ACG",
+    "N": "ACGT", "X": "ACGT"}
+
 TEMPLATE__counts_DNA = {"A": 0, "C": 0, "G": 0, "T": 0, "N": 0}
 TEMPLATE__counts_AA = {"A": 0, "C": 0, "D": 0, "E": 0, "F": 0, "G": 0, "H": 0,
         "I": 0, "K": 0, "L": 0, "M": 0, "N": 0, "P": 0, "Q": 0, "R": 0, "S": 0,
@@ -161,26 +168,49 @@ for s in ["Amino Acids", "Amino Acid", "Amino", "A", "Protein"]:
 
 # Functions ####################################################################
 
-def Consensus_From_List(sequences, cutoff, seq_type,
+def Consensus_From_List(sequences, cutoff, min_coverage, seq_type,
         output_mode=OUTPUT_MODE.STANDARD, input_mode=INPUT_MODE.SINGULAR):
     """
     """
-    counts = 0
+    counts_dicts = Sequence_List_To_Counts_Dict(sequences, seq_type, input_mode)
+    consensus = Consensus_From_Dict(counts_dicts, cutoff, min_coverage,
+            seq_type, output_mode, input_mode)
+    return consensus
 
-def Consensus_From_Dict(counts, cutoff, seq_type,
-        output_mode=OUTPUT_MODE.STANDARD):
+def Consensus_From_Dict(counts, cutoff, min_coverage, seq_type,
+        output_mode=OUTPUT_MODE.STANDARD, input_mode=INPUT_MODE.SINGULAR):
     """
     """
     matrix = Counts_Dict_To_Standard_Matrix(counts, seq_type)
-    consensus = Consensus_From_Standard_Matrix(matrix, cutoff, seq_type,
-            output_mode)
+    consensus = Consensus_From_Standard_Matrix(matrix, cutoff, min_coverage,
+            seq_type, output_mode)
     return consensus
 
-def Consensus_From_Standard_Matrix(list_of_lists, cutoff, seq_type, 
-        output_mode=OUTPUT_MODE.STANDARD):
+def Consensus_From_Standard_Matrix(list_of_dicts, cutoff, min_coverage,
+        seq_type, output_mode=OUTPUT_MODE.STANDARD):
     """
     """
-    pass
+    if seq_type == SEQUENCE_TYPE.DNA or seq_type in LIST__dna:
+        if output_mode == OUTPUT_MODE.SINGULAR:
+            result = Consensus_From_Standard_Matrix__DNA_Singular(sequences)
+        elif output_mode == OUTPUT_MODE.STANDARD:
+            result = Consensus_From_Standard_Matrix__DNA_Standard(sequences)
+        elif output_mode == OUTPUT_MODE.AMBIGUOUS:
+            result = Consensus_From_Standard_Matrix__DNA_Ambiguous(sequences)
+        else:
+            raise Exception(STR__invalid_consesus_format)
+    elif seq_type == SEQUENCE_TYPE.AMINO or seq_type in LIST__amino:
+        if output_mode == OUTPUT_MODE.SINGULAR:
+            result = Consensus_From_Standard_Matrix__AA_Singular(sequences)
+        elif output_mode == OUTPUT_MODE.STANDARD:
+            result = Consensus_From_Standard_Matrix__AA_Standard(sequences)
+        elif output_mode == OUTPUT_MODE.AMBIGUOUS:
+            raise Exception(STR__no_ambiguous_AA_output)
+        else:
+            raise Exception(STR__invalid_consensus_format)
+    else:
+        raise Exception(STR__invalid_seq_type)
+    return result
 
 def Sequence_List_To_Counts_Dict(sequences, seq_type,
         input_mode=INPUT_MODE.SINGULAR):
@@ -203,9 +233,10 @@ def Sequence_List_To_Counts_Dict(sequences, seq_type,
         elif input_mode == INPUT_MODE.AMBIGUOUS:
             raise Exception(STR__no_ambiguous_AA_input)
         else:
-            raise Exception(STR__invalid_consesus_format)
+            raise Exception(STR__invalid_consensus_format)
     else:
         raise Exception(STR__invalid_seq_type)
+    return result
 
 def Counts_Dict_To_Standard_Matrix(counts, seq_type):
     """
@@ -298,9 +329,21 @@ def Parse_Standard_Consensus_Sequence(string):
     # Return
     return result
 
+def Parse_Ambiguous_Sequence(string):
+    """
+    """
+    result = []
+    # Main loop
+    for n in string:
+        matches = DICT__matches_S.get(n, "")
+        if matches: result.append(matches)
+        else: Exception(STR__invalid_consensus_seq.format(s=string))
+    # Return
+    return result 
 
 
-# Sib-Functions ################################################################
+
+# Sub-Functions ################################################################
 
 def Sequence_List_To_Counts_Dict__DNA_Singular(sequences):
     """
@@ -323,7 +366,7 @@ def Sequence_List_To_Counts_Dict__DNA_Singular(sequences):
             if c in LIST__n_x:
                 result[i][c] += 1
             elif c not in LIST__fillers:
-                raise Exception(STR__invalid_seq_char)
+                raise Exception(STR__invalid_seq_char.format(c=c))
     # Return
     return result
 
@@ -332,23 +375,36 @@ def Sequence_List_To_Counts_Dict__DNA_Standard(sequences):
     Subfunction of Sequence_List_To_Counts_Dict.
     """
     # Initialize
-    length = len(sequences[0])
-    range_ = range(length)
+    list_ = Parse_Standard_Consensus_Sequence(sequences[0])
+    length_check = len(list_)
+    range_ = range(length_check)
     result = []
     for i in range_:
         result.append(dict(TEMPLATE__counts_DNA))
     # Main loop
     for sequence in sequences:
         # Check length
-        check = len(sequence)
-        if check != length: raise Exception(STR__different_lengths)
+        list_ = Parse_Standard_Consensus_Sequence(sequence)
+        length = len(list_)
+        if length != length_check: raise Exception(STR__different_lengths)
         # Process
         for i in range_:
-            c = sequence[i]
-            if c in LIST__n_x:
-                result[i][c] += 1
-            elif c not in LIST__fillers:
-                raise Exception(STR__invalid_seq_char)
+            nucleotides = list_[i]
+            score = 12/(len(nucleotides)) # 12 is the LCM of [1,2,3,4]
+            for n in nucleotides: # Go through every N at that position
+                # Nucleotides listed
+                if n in LIST__n:
+                    result[i][n] += score
+                # "N" or "X"
+                elif n in LIST__n_4:
+                    for n2 in LIST__n: result[i][n2] += 3 # 12/4
+                # Error
+                elif n not in LIST__fillers:
+                    raise Exception(STR__invalid_seq_char.format(c=n))
+    # Normalize
+    for dictionary in result:
+        for key in dictionary:
+            dictionary[key] = dictionary[key]/12.0
     # Return
     return result
 
@@ -357,23 +413,36 @@ def Sequence_List_To_Counts_Dict__DNA_Ambiguous(sequences):
     Subfunction of Sequence_List_To_Counts_Dict.
     """
     # Initialize
-    length = len(sequences[0])
-    range_ = range(length)
+    list_ = Parse_Ambiguous_Sequence(sequences[0])
+    length_check = len(list_)
+    range_ = range(length_check)
     result = []
     for i in range_:
         result.append(dict(TEMPLATE__counts_DNA))
     # Main loop
     for sequence in sequences:
         # Check length
-        check = len(sequence)
-        if check != length: raise Exception(STR__different_lengths)
+        list_ = Parse_Ambiguous_Sequence(sequence)
+        length = len(list_)
+        if length != length_check: raise Exception(STR__different_lengths)
         # Process
         for i in range_:
-            c = sequence[i]
-            if c in LIST__n_x:
-                result[i][c] += 1
-            elif c not in LIST__fillers:
-                raise Exception(STR__invalid_seq_char)
+            nucleotides = list_[i]
+            score = 12/(len(nucleotides)) # 12 is the LCM of [1,2,3,4]
+            for n in nucleotides: # Go through every N at that position
+                # Nucleotides listed
+                if n in LIST__n:
+                    result[i][n] += score
+                # "N" or "X"
+                elif nucleotides in LIST__n_4:
+                    for n2 in LIST__n: result[i][n2] += 3 # 12/4
+                # Error
+                elif n not in LIST__fillers:
+                    raise Exception(STR__invalid_seq_char.format(c=n))
+    # Normalize
+    for dictionary in result:
+        for key in dictionary:
+            dictionary[key] = dictionary[key]/12.0
     # Return
     return result
 
@@ -398,7 +467,7 @@ def Sequence_List_To_Counts_Dict__AA_Singular(sequences):
             if c in LIST__a_x:
                 result[i][c] += 1
             elif c not in LIST__fillers:
-                raise Exception(STR__invalid_seq_char)
+                raise Exception(STR__invalid_seq_char.format(c=c))
     # Return
     return result
 
@@ -407,23 +476,36 @@ def Sequence_List_To_Counts_Dict__AA_Standard(sequences):
     Subfunction of Sequence_List_To_Counts_Dict.
     """
     # Initialize
-    length = len(sequences[0])
-    range_ = range(length)
+    list_ = Parse_Standard_Consensus_Sequence(sequences[0])
+    length_check = len(list_)
+    range_ = range(length_check)
     result = []
     for i in range_:
         result.append(dict(TEMPLATE__counts_AA))
     # Main loop
     for sequence in sequences:
         # Check length
-        check = len(sequence)
-        if check != length: raise Exception(STR__different_lengths)
+        list_ = Parse_Standard_Consensus_Sequence(sequence)
+        length = len(list_)
+        if length != length_check: raise Exception(STR__different_lengths)
         # Process
         for i in range_:
-            c = sequence[i]
-            if c in LIST__n_x:
-                result[i][c] += 1
-            elif c not in LIST__fillers:
-                raise Exception(STR__invalid_seq_char)
+            aminos = list_[i]
+            score = 232792560/(len(aminos)) # 232792560 is the LCM of [1,...,20]
+            for a in aminos: # Go through every AA at that position
+                # Nucleotides listed
+                if a in LIST__a:
+                    result[i][a] += score
+                # "N" or "X"
+                elif aminos in LIST__a_20: # 11639628 is 232792560/20
+                    for a2 in LIST__a: result[i][a2] += 11639628
+                # Error
+                elif a not in LIST__fillers:
+                    raise Exception(STR__invalid_seq_char.format(c=a))
+    # Normalize
+    for dictionary in result:
+        for key in dictionary:
+            dictionary[key] = dictionary[key]/232792560.0
     # Return
     return result
 

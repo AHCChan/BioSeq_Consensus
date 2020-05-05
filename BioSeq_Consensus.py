@@ -186,11 +186,11 @@ def Consensus_From_List(sequences, cutoff, min_coverage, seq_type,
     """
     counts_dicts = Sequence_List_To_Counts_Dict(sequences, seq_type, input_mode)
     consensus = Consensus_From_Dicts(counts_dicts, cutoff, min_coverage,
-            seq_type, output_mode, input_mode)
+            seq_type, output_mode)
     return consensus
 
 def Consensus_From_Dicts(counts_dicts, cutoff, min_coverage, seq_type,
-        output_mode=OUTPUT_MODE.STANDARD, input_mode=INPUT_MODE.SINGULAR):
+        output_mode=OUTPUT_MODE.STANDARD):
     """
     """
     matrix = Counts_Dict_To_Standard_Matrix(counts_dicts, seq_type)
@@ -199,7 +199,7 @@ def Consensus_From_Dicts(counts_dicts, cutoff, min_coverage, seq_type,
     return consensus
 
 def Consensus_From_Standard_Matrix(matrix, cutoff, min_coverage, seq_type,
-            output_mode=OUTPUT_MODE.STANDARD):
+        output_mode=OUTPUT_MODE.STANDARD):
     """
     """
     # Setup
@@ -409,7 +409,7 @@ def Parse_Ambiguous_Sequence(string):
 # Sub-Functions ################################################################
 
 def Sequence_List_To_Counts_Dict__DNA_Singular(sequences, normalize=True,
-            existing_dicts=[]):
+        existing_dicts=[]):
     """
     Subfunction of Sequence_List_To_Counts_Dict.
     """
@@ -417,7 +417,8 @@ def Sequence_List_To_Counts_Dict__DNA_Singular(sequences, normalize=True,
     length = len(sequences[0])
     range_ = range(length)
     if existing_dicts:
-        result = list(existing_dicts)
+        result = []
+        for d in existing_dicts: result.append(dict(d))
     else:
         result = []
         for i in range_:
@@ -438,7 +439,7 @@ def Sequence_List_To_Counts_Dict__DNA_Singular(sequences, normalize=True,
     return result
 
 def Sequence_List_To_Counts_Dict__DNA_Standard(sequences, normalize=True,
-            existing_dicts=[]):
+        existing_dicts=[]):
     """
     Subfunction of Sequence_List_To_Counts_Dict.
     """
@@ -447,7 +448,8 @@ def Sequence_List_To_Counts_Dict__DNA_Standard(sequences, normalize=True,
     length_check = len(list_)
     range_ = range(length_check)
     if existing_dicts:
-        result = list(existing_dicts)
+        result = []
+        for d in existing_dicts: result.append(dict(d))
     else:
         result = []
         for i in range_:
@@ -481,7 +483,7 @@ def Sequence_List_To_Counts_Dict__DNA_Standard(sequences, normalize=True,
     return result
 
 def Sequence_List_To_Counts_Dict__DNA_Ambiguous(sequences, normalize=True,
-            existing_dicts=[]):
+        existing_dicts=[]):
     """
     Subfunction of Sequence_List_To_Counts_Dict.
     """
@@ -490,7 +492,8 @@ def Sequence_List_To_Counts_Dict__DNA_Ambiguous(sequences, normalize=True,
     length_check = len(list_)
     range_ = range(length_check)
     if existing_dicts:
-        result = list(existing_dicts)
+        result = []
+        for d in existing_dicts: result.append(dict(d))
     else:
         result = []
         for i in range_:
@@ -524,7 +527,7 @@ def Sequence_List_To_Counts_Dict__DNA_Ambiguous(sequences, normalize=True,
     return result
 
 def Sequence_List_To_Counts_Dict__AA_Singular(sequences, normalize=True,
-            existing_dicts=[]):
+        existing_dicts=[]):
     """
     Subfunction of Sequence_List_To_Counts_Dict.
     """
@@ -532,7 +535,8 @@ def Sequence_List_To_Counts_Dict__AA_Singular(sequences, normalize=True,
     length = len(sequences[0])
     range_ = range(length)
     if existing_dicts:
-        result = list(existing_dicts)
+        result = []
+        for d in existing_dicts: result.append(dict(d))
     else:
         result = []
         for i in range_:
@@ -553,7 +557,7 @@ def Sequence_List_To_Counts_Dict__AA_Singular(sequences, normalize=True,
     return result
 
 def Sequence_List_To_Counts_Dict__AA_Standard(sequences, normalize=True,
-            existing_dicts=[]):
+        existing_dicts=[]):
     """
     Subfunction of Sequence_List_To_Counts_Dict.
     """
@@ -562,7 +566,8 @@ def Sequence_List_To_Counts_Dict__AA_Standard(sequences, normalize=True,
     length_check = len(list_)
     range_ = range(length_check)
     if existing_dicts:
-        result = list(existing_dicts)
+        result = []
+        for d in existing_dicts: result.append(dict(d))
     else:
         result = []
         for i in range_:
@@ -599,7 +604,55 @@ def Sequence_List_To_Counts_Dict__AA_Standard(sequences, normalize=True,
 
 # Classes ######################################################################
 
-
+class Consensus_Builder:
+    """
+    """
+    def __init__(self, seq_type, input_mode=INPUT_MODE.SINGULAR):
+        """
+        """
+        # Stored args
+        self._type = seq_type
+        self._mode = input_mode
+        # Stored data
+        self._counts_dicts = []
+        self._normalized = []
+        # Variables checking
+        if not (self._type == SEQUENCE_TYPE.DNA or self._type in LIST__dna or
+                self._type == SEQUENCE_TYPE.AMINO or self._type in LIST__amino):
+            raise Exception()
+    
+    def Add_Seq(self, seq, input_mode=None):
+        """
+        """
+        if not input_mode: input_mode = self._mode
+        self._counts_dicts = Sequence_List_To_Counts_Dict([seq], self._type,
+                input_mode, False, self._counts_dicts)
+    
+    def Find_Consensus(self, cutoff, min_coverage,
+            output_mode=OUTPUT_MODE.STANDARD):
+        """
+        """
+        self.Calculate_Normalized()
+        consensus = Consensus_From_Dicts(self._counts_dicts, cutoff,
+                min_coverage, self._type, output_mode)
+        return consensus
+    
+    def Calculate_Normalized(self):
+        """
+        """
+        # Determine factor
+        if self._type == SEQUENCE_TYPE.DNA or self._type in LIST__dna:
+            factor = 12.0
+        else: factor = 232792560.0
+        # Copy
+        copy = []
+        for d in self._counts_dicts: copy.append(dict(d))
+        # Normalize
+        for dictionary in copy:
+            for key in dictionary:
+                dictionary[key] = dictionary[key]/factor
+        # Update
+        self._normalized = copy
 
 
 

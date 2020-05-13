@@ -9,7 +9,7 @@ minimum count required, maximum error permitted, and minimum percentage
 required.
 
 Inputs can be provided as a list of strings (sequences), a list of dictionaries 
-(count of occurences of pseudo-occurences), or a standard matrix (nucleotides/
+(count of occurrences of pseudo-occurences), or a standard matrix (nucleotides/
 amino acid positions in alphabetical order).
 
 The produced consensus sequence can either be strict (one output per position),
